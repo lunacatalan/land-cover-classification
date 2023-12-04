@@ -1,0 +1,175 @@
+---
+title: 'Land Cover Classification with Decision Tree'
+author: "Luna Herschenfeld-Catalan"
+date: "2022-12-03"
+output:
+    html_document:
+      print_df: paged
+      toc: yes
+      toc_depth: 4
+      toc_float: yes
+---
+
+# Background
+
+### Goals
+
+-   An overview of the goals of the workflow
+
+### Datasets
+
+-   including any references
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Load Libraries
+
+```{r include=TRUE, message=FALSE, warning=FALSE}
+library(sf)
+library(terra)
+library(here)
+library(dplyr)
+library(rpart)
+library(rpart.plot)
+library(tmap)
+
+```
+
+# Prepare the data
+
+### Read in Landsat data
+
+```{r include=TRUE}
+# list files for each band, including the full file path
+filelist <- list.files("data_2/landsat-data/", # say what folder to read the files in 
+                       full.names = TRUE) # absolute path
+
+# read in and store as a raster stack
+landsat <- rast(filelist)
+
+# update layer names to match band
+names(landsat) <- c("blue", "green", "red", "NIR", "SWIR1", "SWIR2")
+landsat
+# plot true color image
+plotRGB(landsat, 
+        r = 3, # band number defined above
+        g = 2,
+        blue = 1,
+        stretch = "lin") # apply to see more differences in values 
+```
+
+### Read in data for Southern Santa Barbara
+
+```{r include=TRUE}
+
+# read in shapefile for southern portion of SB county
+sb_county_south <- st_read("data_2/SB_county_south.shp")
+
+# project to match the Landsat data
+sb_county_south <- st_transform(sb_county_south, 
+             crs = st_crs(landsat))
+
+plot(sb_county_south)
+```
+
+### Crop the Landsat data to our region of interest: Southern SB
+
+```{r include=TRUE}
+
+# crop Landsat scene to the extent of the SB county shapefile
+landsat_cropped <- crop(landsat, sb_county_south)
+
+# mask the raster to southern portion of SB county
+landsat_masked <- mask(landsat_cropped, sb_county_south)
+
+# remove unnecessary object from environment
+rm(alandsat, landsat_cropped, sb_county_south)
+```
+
+### Convert values in raster stack to reflectance values based on the valid range of pixel values in the Landsat Collection 2 data
+
+```{r include=TRUE}
+summary(landsat_masked)
+# reclassify erroneous values as NA
+rcl <- matrix(c(-Inf, 7273, NA, 
+                43636, Inf, NA),
+              ncol = 3, byrow = TRUE)
+landsat <- classify(landsat_masked, rcl = rcl)
+summary(landsat) # see it's removed the errant values
+# adjust values based on scaling factor
+landsat <- ((landsat * 0.0000275) - 0.2)*100 # returns % reflectance
+summary(landsat) # now range from 0-100
+# plot true color image to check results
+plotRGB(landsat)
+```
+
+# Image Classification on training data 
+
+### Read in training data 
+
+This shapefile has identified the locations in Santa Barbara with 4 different land cover types. We will use this to match their spectral reflectance with land cover types to train our model. 
+
+```{r include=TRUE}
+# read in and transform training data
+training_data <- st_read("data_2/trainingdata.shp") %>% 
+  st_transform(., # holds the space for the data being piped in
+               crs = st_crs(landsat))
+
+# extract reflectance values at training sites
+training_data_values <- extract(landsat,
+                                training_data, # extract at this dataset
+                                df = TRUE)
+
+# convert training data to data frame
+training_data_attributes <- training_data %>% 
+  st_drop_geometry()
+
+# join training data attributes and extracted reflectance values
+sb_training_data <- left_join(training_data_values,
+          training_data_attributes,
+          by = c("ID" = "id")) %>% 
+  mutate(type = as.factor(type))
+```
+
+### Train the decision tree classification tool
+
+```{r include=TRUE}
+# establish model formula
+sb_formula <- type ~ red + green + blue + NIR + SWIR1 + SWIR2
+
+# train decision tree
+decision_tree <- rpart(formula = sb_formula,
+                       data = sb_training_data,
+                       method = "class", # because we are doing categorical classification
+                       na.action = na.omit) # remove NAs 
+
+# plot decision tree
+prp(decision_tree)
+```
+
+First decision was using NIR to ask "is it water or not", then it went on to red to determine "is it green vegetation"...and on and on and on. Can see what is deciding each category. 
+
+# Apply Decision Tree to Southern SB Data 
+
+```{r include=TRUE}
+# classify image based on decision tree
+# should be a raster
+sb_classification <- predict(landsat, # data to apply decision tree to
+                             decision_tree, 
+                             type = "class",
+                             na.rm = TRUE)
+
+# inspect level to understand the order of classes in prediction
+sb_classification
+```
+
+#### Plot Land Cover Map
+
+```{r}
+# plot results
+tm_shape(sb_classification) +
+  tm_raster()
+
+```
