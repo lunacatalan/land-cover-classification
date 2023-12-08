@@ -12,13 +12,32 @@ output:
 
 # Background
 
-### Goals
+Tracking changes in land cover types is important to understanding how phenomena such as urbanization, deforestation, climate change, and natural disasters affect areas. Being able to identify land cover types using remote sensing tools offers the opportunity to derive more meaning from data we already have. Identifying land cover types from remotely sensed imagery involves classifying spectral reflectance of different land cover types. This can be achieved by two methods:
 
--   An overview of the goals of the workflow
+The first approach is *supervised*. This involves **training data** which is pre-labeled by the user, and has already assigned the land cover types to spectral reflectance groups. The second approach is *unsupervised*. This involves the use of **algorithms** that create groups in the data, and those groups are assigned to a land cover type by the user afterwards.
 
-### Datasets
+Here, we will use a supervised approach to classify land cover types as green vegetation, soil/dead grass, urban areas, or water for Southern Santa Barbara County.
 
--   including any references
+## Goals
+
+-   Train a decision tree classifier using spectral reflectance data
+-   Classify land cover types of Southern Santa Barbara County
+
+## Datasets
+
+### 1. Landsat 5 Thematic Mapper
+
+The landsat data is from [Landsat 5](https://www.usgs.gov/landsat-missions/landsat-5), and we will be using 1 scene from September 25, 2007. - bands: 1, 2, 3, 4, 5, 7 - Collection 2 surface reflectance product\
+
+The data is stored in the folder `landsat-data`: - `LT05_L2SP_042036_20070925_20200829_02_T1_SR_B1` - `LT05_L2SP_042036_20070925_20200829_02_T1_SR_B2` - `LT05_L2SP_042036_20070925_20200829_02_T1_SR_B3` - `LT05_L2SP_042036_20070925_20200829_02_T1_SR_B4` - `LT05_L2SP_042036_20070925_20200829_02_T1_SR_B5` - `LT05_L2SP_042036_20070925_20200829_02_T1_SR_B6` - `LT05_L2SP_042036_20070925_20200829_02_T1_SR_B7`
+
+### 2. Study area and training data
+
+The polygon representing southern Santa Barbara county is stored in the `SB_county_south` folder: - `SB_county_south.shp`
+
+The polygons representing training sites is stored in the `trainingdata` folder: - `trainingdata.shp` - type: character string with land cover type\
+
+The points
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
@@ -39,19 +58,26 @@ library(tmap)
 
 # Prepare the data
 
-### Read in Landsat data
+## Read in Landsat data
 
-```{r include=TRUE}
+Load all of the landsat images using a list of the files in the data folder.
+
+```{r include=TRUE, message=FALSE, warning=FALSE}
 # list files for each band, including the full file path
-filelist <- list.files("data_2/landsat-data/", # say what folder to read the files in 
+filelist <- list.files("data/landsat-data/", # say what folder to read the files in 
                        full.names = TRUE) # absolute path
 
 # read in and store as a raster stack
 landsat <- rast(filelist)
+```
 
+Rename the layers to match the bands they correspond to so that we can plot the image. We set the `plotRGB` channels to the true colors that they represent to see a true color image of Southern Santa Barbara County.\
+
+```{r include=TRUE, message=FALSE, warning=FALSE}
 # update layer names to match band
 names(landsat) <- c("blue", "green", "red", "NIR", "SWIR1", "SWIR2")
 landsat
+
 # plot true color image
 plotRGB(landsat, 
         r = 3, # band number defined above
@@ -60,12 +86,14 @@ plotRGB(landsat,
         stretch = "lin") # apply to see more differences in values 
 ```
 
-### Read in data for Southern Santa Barbara
+## Read in data for Southern Santa Barbara
 
-```{r include=TRUE}
+I want to crop the landsat image to only southern SB. To get that geometry we need to load in a shapefile of southern SB and transform it to have a matching crs as the landsat image. 
+
+```{r include=TRUE, message=FALSE, warning=FALSE}
 
 # read in shapefile for southern portion of SB county
-sb_county_south <- st_read("data_2/SB_county_south.shp")
+sb_county_south <- st_read("data/SB_county_south/SB_county_south.shp")
 
 # project to match the Landsat data
 sb_county_south <- st_transform(sb_county_south, 
@@ -74,9 +102,9 @@ sb_county_south <- st_transform(sb_county_south,
 plot(sb_county_south)
 ```
 
-### Crop the Landsat data to our region of interest: Southern SB
+## Crop the Landsat data to our region of interest: Southern SB
 
-```{r include=TRUE}
+```{r include=TRUE, message=FALSE, warning=FALSE}
 
 # crop Landsat scene to the extent of the SB county shapefile
 landsat_cropped <- crop(landsat, sb_county_south)
@@ -85,12 +113,12 @@ landsat_cropped <- crop(landsat, sb_county_south)
 landsat_masked <- mask(landsat_cropped, sb_county_south)
 
 # remove unnecessary object from environment
-rm(alandsat, landsat_cropped, sb_county_south)
+rm(landsat, landsat_cropped, sb_county_south)
 ```
 
 ### Convert values in raster stack to reflectance values based on the valid range of pixel values in the Landsat Collection 2 data
 
-```{r include=TRUE}
+```{r include=TRUE, message=FALSE, warning=FALSE}
 summary(landsat_masked)
 # reclassify erroneous values as NA
 rcl <- matrix(c(-Inf, 7273, NA, 
@@ -105,15 +133,15 @@ summary(landsat) # now range from 0-100
 plotRGB(landsat)
 ```
 
-# Image Classification on training data 
+# Image Classification on training data
 
-### Read in training data 
+### Read in training data
 
-This shapefile has identified the locations in Santa Barbara with 4 different land cover types. We will use this to match their spectral reflectance with land cover types to train our model. 
+This shapefile has identified the locations in Santa Barbara with 4 different land cover types. We will use this to match their spectral reflectance with land cover types to train our model.
 
-```{r include=TRUE}
+```{r include=TRUE, message=FALSE, warning=FALSE}
 # read in and transform training data
-training_data <- st_read("data_2/trainingdata.shp") %>% 
+training_data <- st_read("data/trainingdata/trainingdata.shp") %>% 
   st_transform(., # holds the space for the data being piped in
                crs = st_crs(landsat))
 
@@ -135,7 +163,7 @@ sb_training_data <- left_join(training_data_values,
 
 ### Train the decision tree classification tool
 
-```{r include=TRUE}
+```{r include=TRUE, message=FALSE, warning=FALSE}
 # establish model formula
 sb_formula <- type ~ red + green + blue + NIR + SWIR1 + SWIR2
 
@@ -149,11 +177,11 @@ decision_tree <- rpart(formula = sb_formula,
 prp(decision_tree)
 ```
 
-First decision was using NIR to ask "is it water or not", then it went on to red to determine "is it green vegetation"...and on and on and on. Can see what is deciding each category. 
+First decision was using NIR to ask "is it water or not", then it went on to red to determine "is it green vegetation"...and on and on and on. Can see what is deciding each category.
 
-# Apply Decision Tree to Southern SB Data 
+# Apply Decision Tree to Southern SB Data
 
-```{r include=TRUE}
+```{r include=TRUE, message=FALSE, warning=FALSE}
 # classify image based on decision tree
 # should be a raster
 sb_classification <- predict(landsat, # data to apply decision tree to
@@ -167,7 +195,13 @@ sb_classification
 
 #### Plot Land Cover Map
 
-```{r}
+```{r, message=FALSE, warning=FALSE}
+sb_valid <- st_read("data/SB_validation_points/SB_validation_points.shp") %>% 
+  st_transform(., crs = st_crs(landsat))
+sb_valid
+```
+
+```{r include = TRUE, message=FALSE, warning=FALSE}
 # plot results
 tm_shape(sb_classification) +
   tm_raster()
