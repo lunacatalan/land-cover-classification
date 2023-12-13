@@ -116,6 +116,7 @@ rm(landsat, landsat_cropped, sb_county_south)
 
 ### Convert values in raster stack to reflectance values based on the valid range of pixel values in the Landsat Collection 2 data
 
+The valid range was from 7273 to 43636
 ```{r include=TRUE, message=FALSE, warning=FALSE}
 summary(landsat_masked)
 # reclassify erroneous values as NA
@@ -124,8 +125,14 @@ rcl <- matrix(c(-Inf, 7273, NA,
               ncol = 3, byrow = TRUE)
 landsat <- classify(landsat_masked, rcl = rcl)
 summary(landsat) # see it's removed the errant values
+```
+
+We need to adjust the values based on the scaling factor provided by the landsat metadata. 
+
+```{r include=TRUE, message=FALSE, warning=FALSE}
 # adjust values based on scaling factor
 landsat <- ((landsat * 0.0000275) - 0.2)*100 # returns % reflectance
+
 summary(landsat) # now range from 0-100
 # plot true color image to check results
 plotRGB(landsat)
@@ -161,6 +168,10 @@ sb_training_data <- left_join(training_data_values,
 
 ### Train the decision tree classification tool
 
+Create the formula with the same names of the spectral bands that we loaded in earlier with the landsat data. They need to match so that we can apply the tree to the landsat data later on. 
+
+For the decision tree, apply the formula we just created on the training data. Then plot the tree to see how it classified the data in the training data.
+
 ```{r include=TRUE, message=FALSE, warning=FALSE}
 # establish model formula
 sb_formula <- type ~ red + green + blue + NIR + SWIR1 + SWIR2
@@ -179,6 +190,8 @@ First decision was using NIR to ask "is it water or not", then it went on to red
 
 # Apply Decision Tree to Southern SB Data
 
+Classify the landsat image using the decision tree classes defined above:
+
 ```{r include=TRUE, message=FALSE, warning=FALSE}
 # classify image based on decision tree
 # should be a raster
@@ -193,14 +206,9 @@ sb_classification
 
 #### Plot Land Cover Map
 
-```{r, message=FALSE, warning=FALSE}
-sb_valid <- st_read("data/SB_validation_points/SB_validation_points.shp") %>% 
-  st_transform(., crs = st_crs(landsat))
-sb_valid
-```
+This visualization shows the areas classified into four different land cover types as defined by our training data. 
 
 ```{r include = TRUE, message=FALSE, warning=FALSE}
-
 
 # plot results
 tm_shape(sb_classification) +
