@@ -41,3 +41,7 @@ Contents/Structure:
              │ 
              │ trainingdata
                    | shapefiles
+                   
+### Data Access
+All data to conduct this analysis is stored in the `data` folder.
+- The landsat data is from [Landsat 5](https://www.usgs.gov/landsat-missions/landsat-5), and we used 1 scene from September 25, 2007. - bands: 1, 2, 3, 4, 5, 7 - Collection 2 surface reflectance product.
