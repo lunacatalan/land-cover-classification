@@ -35,9 +35,7 @@ The data is stored in the folder `landsat-data`: - `LT05_L2SP_042036_20070925_20
 
 The polygon representing southern Santa Barbara county is stored in the `SB_county_south` folder: - `SB_county_south.shp`
 
-The polygons representing training sites is stored in the `trainingdata` folder: - `trainingdata.shp` - type: character string with land cover type\
-
-The points
+The polygons representing training sites is stored in the `trainingdata` folder: - `trainingdata.shp` - type: character string with land cover type.\
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
