@@ -214,9 +214,11 @@ This visualization shows the areas classified into four different land cover typ
 base <- tm_shape(sb_classification) +
   tm_raster(col.legend = tm_legend(title = "Land Classifications"))
 
-base +
+land_class_map <- base +
   tm_scalebar(position=c("left", "bottom")) + # add scalebar
   tm_compass(position=c("RIGHT", "TOP")) + # add compass
   tm_graticules(alpha = 0.2) # make lat and long lines light
+
+land_class_map
 
 ```
