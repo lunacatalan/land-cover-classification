@@ -86,7 +86,7 @@ plotRGB(landsat,
 
 ## Read in data for Southern Santa Barbara
 
-I want to crop the landsat image to only southern SB. To get that geometry we need to load in a shapefile of southern SB and transform it to have a matching crs as the landsat image. 
+I want to crop the landsat image to only southern SB. To get that geometry we need to load in a shapefile of southern SB and transform it to have a matching crs as the landsat image.
 
 ```{r include=TRUE, message=FALSE, warning=FALSE}
 
@@ -117,6 +117,7 @@ rm(landsat, landsat_cropped, sb_county_south)
 ### Convert values in raster stack to reflectance values based on the valid range of pixel values in the Landsat Collection 2 data
 
 The valid range was from 7273 to 43636
+
 ```{r include=TRUE, message=FALSE, warning=FALSE}
 summary(landsat_masked)
 # reclassify erroneous values as NA
@@ -127,7 +128,7 @@ landsat <- classify(landsat_masked, rcl = rcl)
 summary(landsat) # see it's removed the errant values
 ```
 
-We need to adjust the values based on the scaling factor provided by the landsat metadata. 
+We need to adjust the values based on the scaling factor provided by the landsat metadata.
 
 ```{r include=TRUE, message=FALSE, warning=FALSE}
 # adjust values based on scaling factor
@@ -168,7 +169,7 @@ sb_training_data <- left_join(training_data_values,
 
 ### Train the decision tree classification tool
 
-Create the formula with the same names of the spectral bands that we loaded in earlier with the landsat data. They need to match so that we can apply the tree to the landsat data later on. 
+Create the formula with the same names of the spectral bands that we loaded in earlier with the landsat data. They need to match so that we can apply the tree to the landsat data later on.
 
 For the decision tree, apply the formula we just created on the training data. Then plot the tree to see how it classified the data in the training data.
 
@@ -206,7 +207,7 @@ sb_classification
 
 #### Plot Land Cover Map
 
-This visualization shows the areas classified into four different land cover types as defined by our training data. 
+This visualization shows the areas classified into four different land cover types as defined by our training data.
 
 ```{r include = TRUE, message=FALSE, warning=FALSE}
 
