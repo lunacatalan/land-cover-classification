@@ -211,9 +211,12 @@ This visualization shows the areas classified into four different land cover typ
 ```{r include = TRUE, message=FALSE, warning=FALSE}
 
 # plot results
-tm_shape(sb_classification) +
-  tm_raster(col.legend = tm_legend(title = "Land Classifications")) +
-  tm_layout(title = "Southern Santa Barbara \nLand Classification", # add title
-            title.position = c("left", "bottom"))
+base <- tm_shape(sb_classification) +
+  tm_raster(col.legend = tm_legend(title = "Land Classifications"))
+
+base +
+  tm_scalebar(position=c("left", "bottom")) + # add scalebar
+  tm_compass(position=c("RIGHT", "TOP")) + # add compass
+  tm_graticules(alpha = 0.2) # make lat and long lines light
 
 ```
